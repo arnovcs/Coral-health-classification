@@ -21,23 +21,33 @@ Both outputs are compared against the ground-truth mask so you can see how accur
 
 ```
 Coral-health-classification/
-├── README.md                         # one-line title
+├── README.md                         # project overview, results and quick start
 ├── ARCHITECTURE.md                   # this file
-├── test.py                           # placeholder ("hello") — not part of the pipeline
-├── coralscapes_id_counts.csv         # per-class pixel counts for each split (from data_inspect)
-├── coralscapes_image_sizes.csv       # width/height/area of every image (from data_inspect)
-├── model_saves/
-│   └── Oct_seven_code.ipynb          # frozen snapshot of the first successful training run (5 epochs)
-└── notebooks/
-    ├── initial.ipynb                 # download Coralscapes from Hugging Face and cache to disk
-    ├── data_inspect.ipynb            # exploratory data analysis (EDA)
-    ├── model_implement.ipynb         # training pipeline (the main 30-epoch run)
-    ├── image_output.ipynb            # inference, health scoring, evaluation and ipywidgets UI
-    ├── coralscapes_labels.py         # CORALSCAPES_LABELS: class-ID → display-name dict (see §8.1)
-    └── coralscapes_coocc_train.csv   # 39×39 image-level class co-occurrence matrix (train split)
+├── requirements.txt                  # Python dependencies (unpinned)
+├── .gitignore                        # ignores dataset cache, checkpoints, __pycache__, notebook checkpoints
+├── notebooks/
+│   ├── 01_download_data.ipynb        # download Coralscapes from Hugging Face and cache to disk
+│   ├── 02_explore_data.ipynb         # exploratory data analysis (EDA)
+│   ├── 03_train_model.ipynb          # training pipeline (the main 30-epoch run)
+│   ├── 04_inference_ui.ipynb         # inference, health scoring, evaluation and ipywidgets UI
+│   └── archive/
+│       └── 2025-10-07_first_run.ipynb  # frozen snapshot of the first successful training run (5 epochs)
+├── src/
+│   └── coralscapes_labels.py         # CORALSCAPES_LABELS: class-ID → display-name dict (see §8.1)
+├── data/
+│   ├── README.md
+│   ├── coralscapes/                  # local dataset cache from save_to_disk (git-ignored)
+│   └── stats/
+│       ├── coralscapes_id_counts.csv     # per-class pixel counts for each split (from 02_explore_data)
+│       ├── coralscapes_image_sizes.csv   # width/height/area of every image (from 02_explore_data)
+│       └── coralscapes_coocc_train.csv   # 39×39 image-level class co-occurrence matrix (train split)
+├── models/
+│   ├── README.md                     # checkpoint format and loading snippet
+│   └── deeplabv3_resnet50_coral.pth  # trained checkpoint (git-ignored)
+└── docs/images/                      # figures used in README.md
 ```
 
-Everything lives in Jupyter notebooks. There is no installable package, CLI or `requirements.txt`. The notebooks pass state between stages through files on disk: the cached dataset and the `.pth` model checkpoint, neither of which is committed.
+The pipeline lives in Jupyter notebooks, numbered in the order they run; `src/` holds the only shared Python module. There is no installable package or CLI. The notebooks pass state between stages through files on disk: the cached dataset (`data/coralscapes/`) and the `.pth` model checkpoint (`models/`), neither of which is committed.
 
 ---
 
@@ -45,18 +55,18 @@ Everything lives in Jupyter notebooks. There is no installable package, CLI or `
 
 ```mermaid
 flowchart LR
-    HF[(Hugging Face<br/>EPFL-ECEO/coralscapes)] -->|load_dataset| INIT[initial.ipynb]
+    HF[(Hugging Face<br/>EPFL-ECEO/coralscapes)] -->|load_dataset| INIT[01_download_data.ipynb]
     INIT -->|save_to_disk| DISK[(Local Arrow cache<br/>coralscapesdata/)]
 
-    DISK --> EDA[data_inspect.ipynb]
+    DISK --> EDA[02_explore_data.ipynb]
     EDA --> CSV1[coralscapes_id_counts.csv]
     EDA --> CSV2[coralscapes_image_sizes.csv]
     EDA --> CSV3[coralscapes_coocc_train.csv]
 
-    DISK --> TRAIN[model_implement.ipynb]
+    DISK --> TRAIN[03_train_model.ipynb]
     TRAIN -->|best val mIoU| CKPT[(deeplabv3_resnet50_coral.pth)]
 
-    DISK --> INF[image_output.ipynb]
+    DISK --> INF[04_inference_ui.ipynb]
     CKPT --> INF
     LBL[coralscapes_labels.py] --> INF
     INF --> UI[ipywidgets UI:<br/>composition + health score<br/>predicted vs. ground truth]
@@ -64,10 +74,10 @@ flowchart LR
 
 | Stage | Notebook | Input | Output |
 |---|---|---|---|
-| 0. Acquire | `initial.ipynb` | Hugging Face Hub | `DatasetDict` saved with `save_to_disk` |
-| 1. Explore | `data_inspect.ipynb` | Cached dataset | Plots and three CSV summaries |
-| 2. Train | `model_implement.ipynb` | Cached dataset | `deeplabv3_resnet50_coral.pth` |
-| 3. Infer and evaluate | `image_output.ipynb` | Dataset, checkpoint, label map | Per-image composition, health score, error, UI |
+| 0. Acquire | `01_download_data.ipynb` | Hugging Face Hub | `DatasetDict` saved with `save_to_disk` |
+| 1. Explore | `02_explore_data.ipynb` | Cached dataset | Plots and three CSV summaries |
+| 2. Train | `03_train_model.ipynb` | Cached dataset | `deeplabv3_resnet50_coral.pth` |
+| 3. Infer and evaluate | `04_inference_ui.ipynb` | Dataset, checkpoint, label map | Per-image composition, health score, error, UI |
 
 ---
 
@@ -126,12 +136,12 @@ The seven largest classes cover about 76% of pixels. Several classes are entirel
 
 ## 5. Stage 0–1: Acquisition and exploration
 
-### 5.1 `initial.ipynb`
+### 5.1 `01_download_data.ipynb`
 
 - Calls `datasets.load_dataset("EPFL-ECEO/coralscapes")` and then `save_to_disk(...)`, which writes 9 / 1 / 3 Arrow shards for train / validation / test.
 - Every later notebook uses `load_from_disk(<path>)`, so the Hub is contacted only once.
 
-### 5.2 `data_inspect.ipynb`
+### 5.2 `02_explore_data.ipynb`
 
 | Check / analysis | Method | Result / artifact |
 |---|---|---|
@@ -148,7 +158,7 @@ The co-occurrence matrix is image-level. Entry `M[i, j]` is the number of traini
 
 ---
 
-## 6. Stage 2: Training (`model_implement.ipynb`)
+## 6. Stage 2: Training (`03_train_model.ipynb`)
 
 ### 6.1 Data utilities
 
@@ -231,14 +241,14 @@ These are **batch-level** values that are then averaged over batches. They are n
 
 | Run | Location | Crop | Augment | Epochs | Best val mIoU | Test pixel acc | Test mIoU |
 |---|---|---|---|---|---|---|---|
-| First successful run | `model_saves/Oct_seven_code.ipynb` | 320 → 288 | crop + flip | 5 | 0.145 | 0.498 | 0.156 |
-| Main run | `notebooks/model_implement.ipynb` | 320 → 320 | crop + flip + ColorJitter | 30 | **0.224** (epoch 30) | **0.635** | **0.230** |
+| First successful run | `notebooks/archive/2025-10-07_first_run.ipynb` | 320 → 288 | crop + flip | 5 | 0.145 | 0.498 | 0.156 |
+| Main run | `notebooks/03_train_model.ipynb` | 320 → 320 | crop + flip + ColorJitter | 30 | **0.224** (epoch 30) | **0.635** | **0.230** |
 
 Each epoch of the main run took about 5,100 s on CPU, so the full run took roughly 42 hours. Training loss fell from 2.82 to 0.75 while validation loss levelled off at about 1.17. Train mIoU (0.35) is noticeably higher than validation mIoU (0.22), which suggests mild overfitting.
 
 ---
 
-## 7. Stage 3: Inference, health scoring and UI (`image_output.ipynb`)
+## 7. Stage 3: Inference, health scoring and UI (`04_inference_ui.ipynb`)
 
 ### 7.1 `inference_transform(pil_img)`
 
@@ -313,7 +323,7 @@ Result(idx, image, pred_comp, pred_health, gt_comp, gt_health, error)
 
 - `on_click` parses the index, disables the button while running, calls `sample_and_predict` and then `render_result`, and shows any exception in the status label.
 - `render_result` clears the `Output` widget, then renders the two composition tables side by side with `pretty_print_composition_to_output`, the composition accuracy, the health comparison and the image.
-- Class names come from `CORALSCAPES_LABELS` in `coralscapes_labels.py`. This file must be importable, so the notebook needs to run with `notebooks/` as its working directory.
+- Class names come from `CORALSCAPES_LABELS` in `src/coralscapes_labels.py`. The notebook adds `../src` to `sys.path` before importing it, so it needs to run with `notebooks/` as its working directory.
 
 The UI depends on these globals being defined by earlier cells: `model`, `handydandy` (the cached dataset), `coral_ids`, `healthy_ids` and `CORALSCAPES_LABELS`.
 
@@ -323,7 +333,7 @@ The UI depends on these globals being defined by earlier cells: `model`, `handyd
 
 ### 8.1 Display names do not match the dataset's label map ⚠️
 
-`notebooks/coralscapes_labels.py` uses names such as "Coral (Acropora)", "Dead Coral" and "Bleached Rock". These **do not match** the official Coralscapes IDs in §4.1. For example:
+`src/coralscapes_labels.py` uses names such as "Coral (Acropora)", "Dead Coral" and "Bleached Rock". These **do not match** the official Coralscapes IDs in §4.1. For example:
 
 | ID | `coralscapes_labels.py` says | Official class |
 |---|---|---|
@@ -352,14 +362,13 @@ As a result, the UI tables label classes incorrectly. A "Bleached Rock" row is a
 - `predict_image` hard-codes `.to("cpu")` and ignores any available GPU.
 - `GradScaler` is created but never used.
 - `render_result` builds `pred_df` and `gt_df` with `comp_to_df` but never displays them.
-- `SegTransform` and `inference_transform` duplicate the same preprocessing, and `TRAIN_SIZE`/`CROP` are re-declared in `image_output.ipynb`. A change in one place has to be copied by hand to the other.
+- `SegTransform` and `inference_transform` duplicate the same preprocessing, and `TRAIN_SIZE`/`CROP` are re-declared in `04_inference_ui.ipynb`. A change in one place has to be copied by hand to the other.
 
 ### 8.5 Reproducibility
 
 - Dataset and checkpoint paths are **hardcoded absolute Windows paths** that differ between notebooks.
 - No random seeds are set (Python `random`, NumPy or torch).
-- There is no `requirements.txt` or environment file.
-- `notebooks/__pycache__/*.pyc` is committed.
+- `requirements.txt` lists dependencies but does not pin versions.
 
 ---
 
@@ -367,14 +376,14 @@ As a result, the UI tables label classes incorrectly. A "Bleached Rock" row is a
 
 ### Dependencies
 
-`datasets`, `torch`, `torchvision`, `numpy`, `pillow`, `matplotlib`, `seaborn`, `pandas`, `ipywidgets` and Jupyter.
+`datasets`, `torch`, `torchvision`, `numpy`, `pillow`, `matplotlib`, `seaborn`, `pandas`, `ipywidgets` and Jupyter. Install them with `pip install -r requirements.txt`.
 
 ### Steps
 
-1. **Cache the data.** Run `initial.ipynb` once, after pointing `save_to_disk`/`load_from_disk` at a local folder.
-2. **(Optional) Explore.** Run `data_inspect.ipynb` to regenerate the plots and CSVs.
-3. **Train.** In `model_implement.ipynb`, update the dataset path and `save_path`, then run every cell **except cell 8**. A GPU is strongly recommended: the 30-epoch run took about 42 hours on CPU.
-4. **Infer and explore.** In `image_output.ipynb`, update the dataset and checkpoint paths, run from the `notebooks/` directory so `coralscapes_labels` imports, execute the cells in order, then use the **New sample** button.
+1. **Cache the data.** Run `01_download_data.ipynb` once, after pointing `save_to_disk`/`load_from_disk` at a local folder (suggested: `data/coralscapes/`).
+2. **(Optional) Explore.** Run `02_explore_data.ipynb` to regenerate the plots and CSVs.
+3. **Train.** In `03_train_model.ipynb`, update the dataset path and `save_path` (suggested: `models/`), then run every cell **except cell 8**. A GPU is strongly recommended: the 30-epoch run took about 42 hours on CPU.
+4. **Infer and explore.** In `04_inference_ui.ipynb`, update the dataset and checkpoint paths, run from the `notebooks/` directory so `src/coralscapes_labels.py` imports, execute the cells in order, then use the **New sample** button.
 
 ### Checkpoint format
 
@@ -390,9 +399,9 @@ To load it, build `deeplabv3_resnet50(num_classes=40)`, call `load_state_dict(ck
 
 | Goal | Where to change |
 |---|---|
-| Different health definition (e.g. penalise bleached coral separately) | `coral_ids` / `healthy_ids` in `image_output.ipynb` |
+| Different health definition (e.g. penalise bleached coral separately) | `coral_ids` / `healthy_ids` in `04_inference_ui.ipynb` |
 | Higher resolution or a different crop | `TRAIN_SIZE` / `CROP` in **both** training and inference notebooks |
-| Different architecture (e.g. SegFormer, DeepLabV3+) | Model cell in `model_implement.ipynb`; keep the `["out"]` output convention or adapt `run_epoch` and `predict_image` |
+| Different architecture (e.g. SegFormer, DeepLabV3+) | Model cell in `03_train_model.ipynb`; keep the `["out"]` output convention or adapt `run_epoch` and `predict_image` |
 | Class-imbalance handling | `criterion` (add `weight=`, or swap in a focal or Dice loss) |
 | Visual overlay of the predicted mask | The commented-out `PALETTE` / overlay block in `predict_image` |
 | Batch evaluation of health error over the whole test set | Loop `sample_and_predict(i)` over `range(len(handydandy["test"]))` and aggregate `error` and composition accuracy |

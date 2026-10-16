@@ -107,14 +107,14 @@ Validation mIoU kept improving throughout training and peaked at the final epoch
 
 | Run | Epochs | Augmentation | Best val mIoU | Test pixel acc. | Test mIoU |
 |---|---|---|---|---|---|
-| First run ([`model_saves/Oct_seven_code.ipynb`](model_saves/Oct_seven_code.ipynb)) | 5 | crop + flip | 0.145 | 49.8% | 0.156 |
-| **Main run** ([`notebooks/model_implement.ipynb`](notebooks/model_implement.ipynb)) | 30 | crop + flip + colour jitter | **0.224** | **63.5%** | **0.230** |
+| First run ([`notebooks/archive/2025-10-07_first_run.ipynb`](notebooks/archive/2025-10-07_first_run.ipynb)) | 5 | crop + flip | 0.145 | 49.8% | 0.156 |
+| **Main run** ([`notebooks/03_train_model.ipynb`](notebooks/03_train_model.ipynb)) | 30 | crop + flip + colour jitter | **0.224** | **63.5%** | **0.230** |
 
 ---
 
 ## Interactive demo
 
-[`notebooks/image_output.ipynb`](notebooks/image_output.ipynb) loads the trained model and provides a small ipywidgets interface. You can enter a test-set index or leave it blank for a random image, then click **New sample**.
+[`notebooks/04_inference_ui.ipynb`](notebooks/04_inference_ui.ipynb) loads the trained model and provides a small ipywidgets interface. You can enter a test-set index or leave it blank for a random image, then click **New sample**.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -147,19 +147,25 @@ A score of 100% means the proportions are identical. The score doesn't consider 
 
 ```
 Coral-health-classification/
-├── notebooks/
-│   ├── initial.ipynb               # Download Coralscapes and cache it locally
-│   ├── data_inspect.ipynb          # Data exploration: class counts, co-occurrence, image sizes
-│   ├── model_implement.ipynb       # Training pipeline (main 30-epoch run)
-│   ├── image_output.ipynb          # Inference, health scoring and interactive UI
-│   ├── coralscapes_labels.py       # Class ID → display name
-│   └── coralscapes_coocc_train.csv # Class co-occurrence matrix
-├── model_saves/
-│   └── Oct_seven_code.ipynb        # Snapshot of the first successful run
-├── coralscapes_id_counts.csv       # Pixel count per class per split
-├── coralscapes_image_sizes.csv     # Resolution of every image
-├── docs/images/                    # Figures used in this README
-└── ARCHITECTURE.md                 # In-depth technical documentation
+├── notebooks/                        # Run in numbered order
+│   ├── 01_download_data.ipynb        # Download Coralscapes and cache it locally
+│   ├── 02_explore_data.ipynb         # Data exploration: class counts, co-occurrence, image sizes
+│   ├── 03_train_model.ipynb          # Training pipeline (main 30-epoch run)
+│   ├── 04_inference_ui.ipynb         # Inference, health scoring and interactive UI
+│   └── archive/
+│       └── 2025-10-07_first_run.ipynb  # Snapshot of the first successful run (5 epochs)
+├── src/
+│   └── coralscapes_labels.py         # Class ID → display name
+├── data/
+│   ├── README.md                     # Where the dataset cache goes
+│   ├── coralscapes/                  # Local dataset cache (git-ignored)
+│   └── stats/                        # EDA outputs: pixel counts, image sizes, co-occurrence
+├── models/
+│   ├── README.md                     # Checkpoint format and how to load it
+│   └── *.pth                         # Trained checkpoints (git-ignored)
+├── docs/images/                      # Figures used in this README
+├── ARCHITECTURE.md                   # In-depth technical documentation
+└── requirements.txt                  # Python dependencies
 ```
 
 ---
@@ -169,19 +175,19 @@ Coral-health-classification/
 ### 1. Install dependencies
 
 ```bash
-pip install torch torchvision datasets numpy pillow matplotlib seaborn pandas ipywidgets jupyter
+pip install -r requirements.txt
 ```
 
 ### 2. Run the notebooks in order
 
 | Step | Notebook | What it does |
 |---|---|---|
-| 1 | `initial.ipynb` | Downloads Coralscapes (about 2,000 images) and saves it to disk |
-| 2 | `data_inspect.ipynb` | Optional. Regenerates the plots and CSV summaries |
-| 3 | `model_implement.ipynb` | Trains the model and saves `deeplabv3_resnet50_coral.pth`. A GPU is strongly recommended. |
-| 4 | `image_output.ipynb` | Loads the checkpoint and launches the interactive UI |
+| 1 | `01_download_data.ipynb` | Downloads Coralscapes (about 2,000 images) and saves it to disk |
+| 2 | `02_explore_data.ipynb` | Optional. Regenerates the plots and CSV summaries |
+| 3 | `03_train_model.ipynb` | Trains the model and saves `deeplabv3_resnet50_coral.pth`. A GPU is strongly recommended. |
+| 4 | `04_inference_ui.ipynb` | Loads the checkpoint and launches the interactive UI |
 
-> **Before running:** the dataset and checkpoint paths are hardcoded Windows paths. Update the `load_from_disk(...)`, `save_path` and checkpoint paths in each notebook to match your machine. Run `image_output.ipynb` from the `notebooks/` directory so that `coralscapes_labels.py` can be imported.
+> **Before running:** the dataset and checkpoint paths are hardcoded Windows paths. Update the `load_from_disk(...)`, `save_path` and checkpoint paths in each notebook to match your machine; the suggested locations are `data/coralscapes/` and `models/` (see [data/README.md](data/README.md) and [models/README.md](models/README.md)). Run the notebooks from the `notebooks/` directory so that `04_inference_ui.ipynb` can import `src/coralscapes_labels.py`.
 
 The trained checkpoint isn't included in this repository, so you need to train the model before you can run step 4.
 
@@ -189,7 +195,7 @@ The trained checkpoint isn't included in this repository, so you need to train t
 
 ## Limitations and future work
 
-- **Display names.** The names in `coralscapes_labels.py` don't match the official Coralscapes class list, so the UI shows the wrong names. The health score is unaffected because it uses the official IDs.
+- **Display names.** The names in `src/coralscapes_labels.py` don't match the official Coralscapes class list, so the UI shows the wrong names. The health score is unaffected because it uses the official IDs.
 - **Low resolution.** The model sees about a tenth of each image's pixels, which loses detail on small or thin coral.
 - **Class imbalance isn't addressed.** Weighted or focal loss, or oversampling images that contain rare classes, should improve accuracy on coral classes.
 - **Augmentation.** Adding random multi-scale resizing, as in SegFormer-style training recipes, would help the model handle corals at different distances from the camera.

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset cache (see data/README.md) — derived stats in data/stats/ are tracked
+data/coralscapes/
+
+# Model checkpoints (see models/README.md)
+models/*.pth
+*.pth
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

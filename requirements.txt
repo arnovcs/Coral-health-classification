@@ -1,0 +1,15 @@
+# Core
+torch
+torchvision
+datasets
+numpy
+pillow
+
+# Analysis and plotting
+pandas
+matplotlib
+seaborn
+
+# Notebooks and UI
+jupyter
+ipywidgets
